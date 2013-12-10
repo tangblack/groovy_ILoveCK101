@@ -1,205 +1,268 @@
 package com.tangblack.iloveck101
 
-//import os
-//import sys
-//import re
-//import platform
-//
-//import gevent
-//from gevent import monkey
-//import requests
-//from lxml import etree
-//from more_itertools import chunked
-//
-//from .utils import get_image_info, parse_url
-//from .exceptions import URLParseError
-//
-//
-//monkey.patch_all()
-//
-//REQUEST_HEADERS = {'User-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/31.0.1650.57 Safari/537.36'}
-//BASE_URL = 'http://ck101.com/'
-//CHUNK_SIZE = 3
-//
-//
-//def iloveck101(url):
-//	"""
-//    Determine the url is valid. And check if the url contains any thread link or it's a thread.
-//    """
-//
-//	if 'ck101.com' in url:
-//		if 'thread' in url:
-//			retrieve_thread(url)
-//		else:
-//			for thread in retrieve_thread_list(url):
-//				if thread is not None:
-//					retrieve_thread(thread)
-//	else:
-//		sys.exit('This is not ck101 url')
-//
-//
-//def retrieve_thread_list(url):
-//	"""
-//    The url may contains many thread links. We parse them out.
-//    """
-//
-//	resp = requests.get(url, headers=REQUEST_HEADERS)
-//
-//	# parse html
-//	html = etree.HTML(resp.content)
-//
-//	links = html.xpath('//a/@href')
-//	for link in links:
-//		yield link
-//
-//
-//def retrieve_thread(url):
-//	"""
-//    download images from given ck101 URL
-//    """
-//
-//	# check if the url has http prefix
-//	if not url.startswith('http'):
-//		url = BASE_URL + url
-//
-//	# find thread id
-//	m = re.match('thread-(\d+)-.*', url.rsplit('/', 1)[1])
-//	if not m:
-//		return
-//
-//	print '\nVisit %s' % (url)
-//
-//	thread_id = m.group(1)
-//
-//
-//	# create `iloveck101` folder in ~/Pictures
-//	system = platform.system()
-//	if system == 'Darwin':
-//		picfolder = 'Pictures'
-//	else:
-//		picfolder = ''
-//
-//	home = os.path.expanduser("~")
-//	base_folder = os.path.join(home, picfolder, 'iloveck101')
-//
-//	if not os.path.exists(base_folder):
-//		os.mkdir(base_folder)
-//
-//	# parse title and images
-//	try:
-//		title, image_urls = parse_url(url)
-//	except URLParseError:
-//		sys.exit('Oops, can not fetch the page')
-//
-//	# create target folder for saving images
-//	folder = os.path.join(base_folder, "%s - %s" % (thread_id, title))
-//	if not os.path.exists(folder):
-//		os.mkdir(folder)
-//
-//	def process_image_worker(image_url):
-//		filename = image_url.rsplit('/', 1)[1]
-//
-//		# ignore useless image
-//		if not image_url.startswith('http'):
-//			return
-//
-//		# fetch image
-//		print 'Fetching %s ...' % image_url
-//		resp = requests.get(image_url, headers=REQUEST_HEADERS)
-//
-//		# ignore small images
-//		content_type, width, height = get_image_info(resp.content)
-//		if width < 400 or height < 400:
-//			print "image is too small"
-//			return
-//
-//		# save image
-//		with open(os.path.join(folder, filename), 'wb+') as f:
-//			f.write(resp.content)
-//
-//	for chunked_image_urls in chunked(image_urls, CHUNK_SIZE):
-//		jobs = [gevent.spawn(process_image_worker, image_url)
-//				for image_url in chunked_image_urls]
-//		gevent.joinall(jobs)
-//
-//
-//def main():
-//	try:
-//		url = sys.argv[1]
-//	except IndexError:
-//		sys.exit('Please provide URL from ck101')
-//
-//	iloveck101(url)
+import groovy.util.logging.Log
 
-/**
- * Determine the url is valid. And check if the url contains any thread link or it's a thread.
- * 
- * @param url
- */
-private void iLoveCk101(url)
+import org.jsoup.Jsoup
+import org.jsoup.Connection.Response
+import org.jsoup.nodes.Document
+import org.jsoup.nodes.Element
+import org.jsoup.select.Elements
+
+
+@Log
+class ILoveCk101
 {
-	println "iLoveCk101 url=$url"
-	
-	if ((url =~ 'ck101.com') == false)
-	{
-		println "This is not ck101 url"
-		return
-	}
-	
-	if ((url =~ 'thread'))
-	{
-		retriveThread(url)
-	}
-	else
-	{
+    
+    private static final String BASE_URL = 'http://ck101.com/'
+    
+    /**
+     * Determine the url is valid. And check if the url contains any thread link or it's a thread.
+     * 
+     * @param url
+     * @see <a href="http://groovy.codehaus.org/Regular+Expressions">Regular Expressions</a>
+     */
+    void run(url)
+    {
+        log.info("run() url=$url")
+        
+        if ((url =~ 'ck101.com') == false)
+        {
+            log.warning("$url is not ck101 url!")
+            return
+        }
+        
+        if ((url =~ 'thread'))
+        {
+            retriveThread(url)
+        }
+        else
+        {
+            def threadList = retriveThreadList(url)
+			for (String threadUrl : threadList)
+			{
+				log.info("threadUrl=$threadUrl")
+				retriveThread(threadUrl) //TODO
+			}
+        }
+    }
+    
+    /**
+     * download images from given ck101 URL.
+     * 
+     * @param url
+     * 
+     * @see <a href="http://stackoverflow.com/questions/754307/regex-to-replace-characters-that-windows-doesnt-accept-in-a-filename">sRegex to replace characters that Windows doesn't accept in a filename</a>
+     */
+    private void retriveThread(String url)
+    {
+        log.info("retriveThread() url=$url")
+        
+		/* check if the url has http prefix. */
+		if (url.startsWith('http') == false)
+		{	
+			url = 'http' + url
+		}
+
+        Document document = parseUrl(url)
+		if (document == null)
+		{
+			log.warning('Oops, can not fetch the page!')
+			System.exit(0)
+		}
 		
+				
+		/* find thread id. */
+		def matcher = (url =~ /thread-(\d+)-.*/)
+		if (matcher == false)
+		{
+			return
+		}
+		def threadId = matcher[0][1]
+		log.info("threadId=$threadId")
+		
+		
+		
+        /* create `iloveck101` folder in ~/Pictures */
+        log.fine(System.getProperty("user.home"))
+        String desktopPath = System.getProperty("user.home") + File.separator + 'Desktop'
+        File baseFolder = new File(desktopPath, 'ILoveCk101')
+		if (baseFolder.exists() == false)
+		{
+			baseFolder.mkdir()
+		}
+		
+		/* create target folder for saving images. */
+		String title = document.title()
+		log.info("title=$title")
+		title.replaceAll("[\\/:*?\"<>|]", "") // Remove invalid string in windows.
+		File folder = new File(baseFolder, "$threadId - $title")
+		if (folder.exists() == false)
+		{
+			folder.mkdir()
+		}
+		
+		
+		/* Save images. */
+		Elements imgages = document.select('img[file]')
+		for (org.jsoup.nodes.Element img : imgages)
+		{
+			log.info(img.attr("file"))
+			downloadImage(folder, img.attr("file"))
+		}
+		
+		//
+		//    for chunked_image_urls in chunked(image_urls, CHUNK_SIZE):
+		//        jobs = [gevent.spawn(process_image_worker, image_url)
+		//                for image_url in chunked_image_urls]
+		//        gevent.joinall(jobs)
+		
+		//    def process_image_worker(image_url):
+		//        filename = image_url.rsplit('/', 1)[1]
+		//
+		//        # ignore useless image
+		//        if not image_url.startswith('http'):
+		//            return
+		//
+		//        # fetch image
+		//        print 'Fetching %s ...' % image_url
+		//        resp = requests.get(image_url, headers=REQUEST_HEADERS)
+		//
+		//        # ignore small images
+		//        content_type, width, height = get_image_info(resp.content)
+		//        if width < 400 or height < 400:
+		//            print "image is too small"
+		//            return
+		//
+		//        # save image
+		//        with open(os.path.join(folder, filename), 'wb+') as f:
+		//            f.write(resp.content)
+    }
+	
+    /**
+     * The url may contains many thread links. We parse them out.
+     * 
+     * @param url
+     */
+    private List<String> retriveThreadList(url)
+    {
+        log.info("retriveThreadList() url=$url")
+		
+		List<String> urlList = []
+		
+		Document document = parseUrl(url)
+		if (document == null)
+		{
+			log.warning('Oops, can not fetch the page!')
+			System.exit(0)
+		}
+		
+		Elements links = document.select("a[href]"); // a with href
+		for (Element link : links)
+		{
+			def href = link.attr('href')
+			log.info("href=$href")
+			
+			/* check if the url has http prefix. */
+			if (href.startsWith('http') == false)
+			{
+				href = BASE_URL + href
+			}
+			
+			
+			if ((href =~ 'thread'))
+			{
+				urlList += href
+			}
+		}
+		
+		return urlList
+    }
+	
+	/**
+	 * parse image_url from given url.
+	 */
+	private Document parseUrl(url)
+	{
+		log.info("parseUrl() url=$url")
+		
+		for (i in 1..3)
+		{
+			log.info("Try $i time...")
+			
+			try
+			{
+				/* fetch html. */
+				Response response =
+						Jsoup.connect(url)
+						.header('Host', 'ck101.com')
+						.header('Connection', 'keep-alive')
+						.header('Cache-Control', 'max-age=0')
+						.header('Accept', 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8')
+						.header('Accept-Encoding', 'gzip,deflate,sdch')
+						.header('Accept-Language', 'zh-TW,zh;q=0.8,en-US;q=0.6,en;q=0.4,ja;q=0.2')
+						.userAgent('Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/30.0.1599.101 Safari/537.36')
+						.timeout(60000)
+						.execute()
+				
+				if (response.statusCode() != 200)
+				{
+					log.info("Status code is $response.statusCode(), retrying ...")
+					continue
+				}
+				return response.parse();
+			}
+			catch (IOException e)
+			{
+				e.printStackTrace();
+				
+				log.info('Retrying ...')
+				continue
+			}
+		}
+		
+		return null
 	}
 	
-	//
-	//def iloveck101(url):
-	//	"""
-//    Determine the url is valid. And check if the url contains any thread link or it's a thread.
-//    """
-	//
-	//	if 'ck101.com' in url:
-	//		if 'thread' in url:
-	//			retrieve_thread(url)
-	//		else:
-	//			for thread in retrieve_thread_list(url):
-	//				if thread is not None:
-	//					retrieve_thread(thread)
-	//	else:
-	//		sys.exit('This is not ck101 url')
-}
-
-private void retriveThread(url)
-{
-	println "retriveThread url=$url"
-}
-
-/**
- * The url may contains many thread links. We parse them out.
- * 
- * @param url
- */
-private void retriveThreadList(url)
-{
-	println "retriveThreadList url=$url"
-}
-
-/**
- * Main.
- */
-static main(args)
-{	
-	if (args)
+	/**
+	 * 
+	 * @param folder
+	 * @param url
+	 * 
+	 * @see <a href="http://stackoverflow.com/questions/4674995/groovy-download-image-from-url">Groovy download image from url</a>
+	 */
+	private void downloadImage(File folder, String url)
 	{
-		String url = args[0]
-		assert url == "http://ck101.com/thread-2876990-1-1.html"
-		iLoveCk101(url)
+		log.info("downloadImage() folder=$folder, url=$url")
+		
+		/* ignore useless image. */
+		if (url.startsWith('http') == false)
+		{
+			return
+		}
+		
+		/* fetch image. */
+		
+		/* ignore small images. */
+		
+		log.info("Downloading $url ...")
+		new File(folder, "${url.tokenize('/')[-1]}.png").withOutputStream { out ->
+		out << new URL(url).openStream()
+		}
 	}
-	else
-	{
-		println "Please provide URL from ck101"
-	}
+	
+    /**
+     * Main.
+     */
+    static main(args)
+    {    
+        if (args)
+        {
+            String url = args[0]
+            new ILoveCk101().run(url)
+        }
+        else
+        {
+            println "Please provide URL from ck101"
+        }
+    }
 }
