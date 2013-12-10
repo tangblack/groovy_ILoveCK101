@@ -29,7 +29,6 @@ $ groovy ILoveCk101.groovy http://ck101.com/beauty/
 看起來像這樣
 ==============
 
-![圖片資料夾](https://raw.github.com/tzangms/iloveck101/master/docs/images1.png) 
-![圖片](https://raw.github.com/tzangms/iloveck101/master/docs/images2.png) 
+![截圖](http://i.imgur.com/EsZ6chY.png) 
 
 
