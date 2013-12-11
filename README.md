@@ -6,7 +6,7 @@ https://github.com/tzangms/iloveck101 (我愛卡提諾/tzangms大 aka 海總理)
 
 如何安裝
 ==========
-安裝 JAvA
+安裝 JAVA
 ----------
 * [Download JAVA](http://www.java.com/zh_TW/download/).
 * Set your JAVA_HOME environment variable to point to your JDK. On OS X this is /Library/Java/Home, on other unixes its often /usr/java etc. If you've already installed tools like Ant or Maven you've probably already done this step.
