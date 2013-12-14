@@ -1,0 +1,29 @@
+buildscript {
+    repositories {
+        mavenCentral()
+    }
+    dependencies {
+        classpath 'com.github.rholder:gradle-one-jar:1.0.3'
+    }
+}
+
+apply plugin: 'groovy'
+apply plugin: 'application'
+apply plugin: 'eclipse'
+apply plugin: 'gradle-one-jar'
+
+mainClassName = "com.tangblack.iloveck101.ILoveCk101"
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compile "org.codehaus.groovy:groovy-all:2.1.5"
+    compile "org.jsoup:jsoup:1.7.3"
+    compile "junit:junit:4.11"
+}
+
+task oneJar(type: OneJar) {
+    mainClass = 'com.tangblack.iloveck101.ILoveCk101'
+}
