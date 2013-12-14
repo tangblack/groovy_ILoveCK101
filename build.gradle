@@ -27,3 +27,9 @@ dependencies {
 task oneJar(type: OneJar) {
     mainClass = 'com.tangblack.iloveck101.ILoveCk101'
 }
+
+run{
+    if(project.hasProperty("appProp")){
+        args appProp
+    }
+}

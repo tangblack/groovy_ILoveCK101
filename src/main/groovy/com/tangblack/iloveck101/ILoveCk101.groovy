@@ -8,13 +8,21 @@ import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import org.jsoup.select.Elements
 
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 @Log
 class ILoveCk101
 {
     
     private static final String BASE_URL = 'http://ck101.com/'
-    
+    static def thread_pool = Executors.newFixedThreadPool(8)
+    static def imageQueue = []
+    def downloadImageJob = { folder, url->
+        new File(folder, "${url.tokenize('/')[-1]}").withOutputStream { out ->
+          out << new URL(url).openStream()
+        }
+    }
     /**
      * Determine the url is valid. And check if the url contains any thread link or it's a thread.
      * 
@@ -23,11 +31,11 @@ class ILoveCk101
      */
     void run(url)
     {
-        log.info("run() url=$url")
+        // log.info("run() url=$url")
         
         if ((url =~ 'ck101.com') == false)
         {
-            log.warning("$url is not ck101 url!")
+            // log.warning("$url is not ck101 url!")
             return
         }
         
@@ -40,7 +48,7 @@ class ILoveCk101
             def threadList = retriveThreadList(url)
 			for (String threadUrl : threadList)
 			{
-				log.info("threadUrl=$threadUrl")
+				// log.info("threadUrl=$threadUrl")
 				retriveThread(threadUrl) //TODO
 			}
         }
@@ -55,7 +63,7 @@ class ILoveCk101
      */
     private void retriveThread(String url)
     {
-        log.info("retriveThread() url=$url")
+        // log.info("retriveThread() url=$url")
         
 		/* check if the url has http prefix. */
 		if (url.startsWith('http') == false)
@@ -66,7 +74,7 @@ class ILoveCk101
         Document document = parseUrl(url)
 		if (document == null)
 		{
-			log.warning('Oops, can not fetch the page!')
+			// log.warning('Oops, can not fetch the page!')
 			System.exit(0)
 		}
 		
@@ -78,12 +86,12 @@ class ILoveCk101
 			return
 		}
 		def threadId = matcher[0][1]
-		log.info("threadId=$threadId")
+		// log.info("threadId=$threadId")
 		
 		
 		
         /* create `iloveck101` folder in ~/Pictures */
-        log.fine(System.getProperty("user.home"))
+        // log.fine(System.getProperty("user.home"))
         String desktopPath = System.getProperty("user.home") + File.separator + 'Desktop'
         File baseFolder = new File(desktopPath, 'ILoveCk101')
 		if (baseFolder.exists() == false)
@@ -93,7 +101,7 @@ class ILoveCk101
 		
 		/* create target folder for saving images. */
 		String title = document.title()
-		log.info("title=$title")
+		// log.info("title=$title")
 		title.replaceAll("[\\/:*?\"<>|]", "") // Remove invalid string in windows.
 		File folder = new File(baseFolder, "$threadId - $title")
 		if (folder.exists() == false)
@@ -106,7 +114,7 @@ class ILoveCk101
 		Elements imgages = document.select('img[file]')
 		for (org.jsoup.nodes.Element img : imgages)
 		{
-			log.info(img.attr("file"))
+			// log.info(img.attr("file"))
 			downloadImage(folder, img.attr("file"))
 		}
 		
@@ -145,9 +153,10 @@ class ILoveCk101
      */
     private List<String> retriveThreadList(url)
     {
-        log.info("retriveThreadList() url=$url")
-		
-		List<String> urlList = []
+        // log.info("retriveThreadList() url=$url")
+		def urlList
+        def urlMap = [:]
+		// List<String> urlList = []
 		
 		Document document = parseUrl(url)
 		if (document == null)
@@ -160,7 +169,7 @@ class ILoveCk101
 		for (Element link : links)
 		{
 			def href = link.attr('href')
-			log.info("href=$href")
+			// log.info("href=$href")
 			
 			/* check if the url has http prefix. */
 			if (href.startsWith('http') == false)
@@ -171,10 +180,12 @@ class ILoveCk101
 			
 			if ((href =~ 'thread'))
 			{
-				urlList += href
+                urlMap[href] = href
 			}
+
 		}
-		
+        urlList = new ArrayList(urlMap.keySet())
+		println urlList.size()
 		return urlList
     }
 	
@@ -183,11 +194,11 @@ class ILoveCk101
 	 */
 	private Document parseUrl(url)
 	{
-		log.info("parseUrl() url=$url")
+		// log.info("parseUrl() url=$url")
 		
 		for (i in 1..3)
 		{
-			log.info("Try $i time...")
+			// log.info("Try $i time...")
 			
 			try
 			{
@@ -232,7 +243,7 @@ class ILoveCk101
 	 */
 	private void downloadImage(File folder, String url)
 	{
-		log.info("downloadImage() folder=$folder, url=$url")
+		// log.info("downloadImage() folder=$folder, url=$url")
 		
 		/* ignore useless image. */
 		if (url.startsWith('http') == false)
@@ -244,10 +255,23 @@ class ILoveCk101
 		
 		/* ignore small images. */
 		
-		log.info("Downloading $url ...")
-		new File(folder, "${url.tokenize('/')[-1]}.png").withOutputStream { out ->
-		out << new URL(url).openStream()
-		}
+		// log.info("Downloading $url ...")
+        // imageQueue << [folder: folder, url: url ]
+        try {
+            thread_pool.submit({
+                downloadImageJob folder, url
+            });
+        }catch (Exception e){
+            println "exception"
+            e.printStackTrace()
+        }
+        // finally {
+        //     // thread_pool.shutdown()
+        //     // println "submit finish!"
+        // }
+		// new File(folder, "${url.tokenize('/')[-1]}").withOutputStream { out ->
+		//   out << new URL(url).openStream()
+		// }
 	}
 	
     /**
@@ -255,10 +279,42 @@ class ILoveCk101
      */
     static main(args)
     {    
+        println args
         if (args)
         {
+            
             String url = args[0]
             new ILoveCk101().run(url)
+
+            println imageQueue.size()
+            
+            try {
+                for (job in imageQueue) {
+                    thread_pool.submit({
+                        downloadImageJob(job["folder"], job["url"])
+                    });
+                }
+
+                // thread_pool.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+                thread_pool.shutdown()
+            }catch (Exception e){
+                println "exception"
+                e.printStackTrace()
+            }finally {
+                // thread_pool.shutdown()
+                println "submit finish!"
+            }
+            
+            try {
+              //thread_pool.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+              // println thread_pool.awaitTermination(10 * 1000, TimeUnit.NANOSECONDS);
+              println thread_pool.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)
+                
+              println "thread pool is close"
+              
+            } catch (InterruptedException e) {
+              println e              
+            }
         }
         else
         {
