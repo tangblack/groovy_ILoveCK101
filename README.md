@@ -20,6 +20,18 @@ https://github.com/tzangms/iloveck101 (我愛卡提諾/tzangms大 aka 海總理)
 如何使用
 ===========
 
+你可用 gradle build 一個可以執行的 jar，只需要在有裝 jvm 的機器上就可以跑
+
+產生可以執行的 .jar
+---
+
+```bash
+$ gradle oneJar
+$ java -jar build/libs/groovy_ILoveCK101-standalone.jar
+```
+
+或是用 gradle 幫你 run groovy_iloveck101
+
 ```bash 
 $ ~/groovy_ILoveCK101/gradle run -PappProp="[url]"
 ```
@@ -30,7 +42,9 @@ for example
 $ gradle run -PappProp="http://ck101.com/thread-2876990-1-1.html"
 $ gradle run -PappProp="http://ck101.com/beauty/"
 ```
+
 在桌面上就可以發現 ILoveCk101 資料夾，圖片都按照標題放在各自的資料夾下。
+
 只有在MAC OS 10.9測試過
 
 看起來像這樣
