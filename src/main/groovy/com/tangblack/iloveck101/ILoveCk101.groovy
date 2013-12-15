@@ -8,13 +8,21 @@ import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import org.jsoup.select.Elements
 
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 
 @Log
 class ILoveCk101
 {
     
     private static final String BASE_URL = 'http://ck101.com/'
-    
+    static def thread_pool = Executors.newFixedThreadPool(8)
+    static def imageQueue = []
+    def downloadImageJob = { folder, url->
+        new File(folder, "${url.tokenize('/')[-1]}").withOutputStream { out ->
+          out << new URL(url).openStream()
+        }
+    }
     /**
      * Determine the url is valid. And check if the url contains any thread link or it's a thread.
      * 
@@ -146,8 +154,9 @@ class ILoveCk101
     private List<String> retriveThreadList(url)
     {
         log.info("retriveThreadList() url=$url")
-		
-		List<String> urlList = []
+		def urlList
+        def urlMap = [:]
+		// List<String> urlList = []
 		
 		Document document = parseUrl(url)
 		if (document == null)
@@ -171,10 +180,12 @@ class ILoveCk101
 			
 			if ((href =~ 'thread'))
 			{
-				urlList += href
+                urlMap[href] = href
 			}
+
 		}
-		
+        urlList = new ArrayList(urlMap.keySet())
+		println urlList.size()
 		return urlList
     }
 	
@@ -245,9 +256,22 @@ class ILoveCk101
 		/* ignore small images. */
 		
 		log.info("Downloading $url ...")
-		new File(folder, "${url.tokenize('/')[-1]}.png").withOutputStream { out ->
-		out << new URL(url).openStream()
-		}
+        // imageQueue << [folder: folder, url: url ]
+        try {
+            thread_pool.submit({
+                downloadImageJob folder, url
+            });
+        }catch (Exception e){
+            println "exception"
+            e.printStackTrace()
+        }
+        // finally {
+        //     // thread_pool.shutdown()
+        //     // println "submit finish!"
+        // }
+		// new File(folder, "${url.tokenize('/')[-1]}").withOutputStream { out ->
+		//   out << new URL(url).openStream()
+		// }
 	}
 	
     /**
@@ -255,10 +279,34 @@ class ILoveCk101
      */
     static main(args)
     {    
+        println args
         if (args)
         {
+            
             String url = args[0]
-            new ILoveCk101().run(url)
+            new ILoveCk101().run(url)            
+            try {
+                for (job in imageQueue) {
+                    thread_pool.submit({
+                        downloadImageJob(job["folder"], job["url"])
+                    });
+                }                
+                thread_pool.shutdown()
+            }catch (Exception e){
+                e.printStackTrace()
+            }finally {
+                thread_pool.shutdown()
+                println "submit finish! waiting download image"
+            }
+            
+            // try {
+            //   //thread_pool.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+            //   // println thread_pool.awaitTermination(10 * 1000, TimeUnit.NANOSECONDS);
+            //   println thread_pool.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)
+            //   println "thread pool is close"
+            // } catch (InterruptedException e) {
+            //   println e              
+            // }
         }
         else
         {
