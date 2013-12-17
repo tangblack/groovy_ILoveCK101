@@ -2,32 +2,29 @@ package com.tangblack.iloveck101
 
 import groovy.util.logging.Log
 
+import java.util.concurrent.Callable
+import java.util.concurrent.Executors
+import java.util.concurrent.ExecutorService
+
+import org.codehaus.groovy.ast.stmt.ContinueStatement;
 import org.jsoup.Jsoup
 import org.jsoup.Connection.Response
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import org.jsoup.select.Elements
 
-import java.util.concurrent.Executors
-import java.util.concurrent.TimeUnit
-
 @Log
 class ILoveCk101
 {
-    
     private static final String BASE_URL = 'http://ck101.com/'
-    static def thread_pool = Executors.newFixedThreadPool(8)
-    static def imageQueue = []
-    def downloadImageJob = { folder, url->
-        new File(folder, "${url.tokenize('/')[-1]}").withOutputStream { out ->
-          out << new URL(url).openStream()
-        }
-    }
+	private ExecutorService threadPool = Executors.newFixedThreadPool(8)
+
     /**
      * Determine the url is valid. And check if the url contains any thread link or it's a thread.
      * 
      * @param url
      * @see <a href="http://groovy.codehaus.org/Regular+Expressions">Regular Expressions</a>
+     * @see <a href="http://blog.csdn.net/bincavin/article/details/8166659">ExecutorService java線程池主線程等待子線程執行完成</a>
      */
     void run(url)
     {
@@ -49,11 +46,30 @@ class ILoveCk101
 			for (String threadUrl : threadList)
 			{
 				log.info("threadUrl=$threadUrl")
-				retriveThread(threadUrl) //TODO
+				retriveThread(threadUrl) 
 			}
         }
+		
+		
+		/* Invoke shutdown() after submit all tasks. */
+		threadPool.shutdown()
+		log.info("threadPool.shutdown()")
+		
+		/* Main thread waits until finishing download tasks. */
+		while (!threadPool.isTerminated())
+		{
+			try
+			{
+				Thread.sleep(1000);
+			}
+			catch (InterruptedException e)
+			{
+				e.printStackTrace();
+			}
+	   }
+		
     }
-    
+	
     /**
      * download images from given ck101 URL.
      * 
@@ -114,8 +130,20 @@ class ILoveCk101
 		Elements imgages = document.select('img[file]')
 		for (org.jsoup.nodes.Element img : imgages)
 		{
-			log.info(img.attr("file"))
-			downloadImage(folder, img.attr("file"))
+			String imgUrl = img.attr("file")
+			log.info("imgUrl=$imgUrl")
+			
+			/* ignore useless image. */
+			if (imgUrl.startsWith('http') == false)
+			{
+				log.info("$imgUrl imgUrl.startsWith('http') == false")
+				continue
+			}
+			
+			threadPool.submit({
+				log.info("threadPool.submit()")
+				downloadUrlClosure(imgUrl, folder)
+			})
 		}
 		
 		//
@@ -146,6 +174,25 @@ class ILoveCk101
 		//            f.write(resp.content)
     }
 	
+	/**
+	 * @see <a href="http://stackoverflow.com/questions/4674995/groovy-download-image-from-url">Groovy download image from url</a>
+	 * @see <a href="http://groovy.codehaus.org/Concurrency+with+Groovy">Concurrency with Groovy</a>
+	 */
+	private def downloadUrlClosure = { imgUrl, folder ->
+			
+			/* fetch image. */
+			
+			/* ignore small images. */
+			
+			log.info("Downloading $imgUrl ...")
+			new File(folder, "${imgUrl.tokenize('/')[-1]}.png").withOutputStream { out ->
+				out << new URL(imgUrl).openStream()
+			}
+			
+			/* Print thread id. */
+//			println Thread.allStackTraces.keySet().join('\n')
+	}
+	
     /**
      * The url may contains many thread links. We parse them out.
      * 
@@ -154,9 +201,9 @@ class ILoveCk101
     private List<String> retriveThreadList(url)
     {
         log.info("retriveThreadList() url=$url")
-		def urlList
+        
+		def urlList = []
         def urlMap = [:]
-		// List<String> urlList = []
 		
 		Document document = parseUrl(url)
 		if (document == null)
@@ -166,6 +213,7 @@ class ILoveCk101
 		}
 		
 		Elements links = document.select("a[href]"); // a with href
+		log.info("links.size()=${links.size()}")
 		for (Element link : links)
 		{
 			def href = link.attr('href')
@@ -177,15 +225,16 @@ class ILoveCk101
 				href = BASE_URL + href
 			}
 			
-			
+			/* Use map to remove duplicate links. */
 			if ((href =~ 'thread'))
 			{
                 urlMap[href] = href
 			}
 
 		}
+        
         urlList = new ArrayList(urlMap.keySet())
-		println urlList.size()
+        log.info("urlList.size()=${urlList.size()}")
 		return urlList
     }
 	
@@ -196,7 +245,7 @@ class ILoveCk101
 	{
 		log.info("parseUrl() url=$url")
 		
-		for (i in 1..3)
+		for (i in 1..10)
 		{
 			log.info("Try $i time...")
 			
@@ -235,78 +284,14 @@ class ILoveCk101
 	}
 	
 	/**
-	 * 
-	 * @param folder
-	 * @param url
-	 * 
-	 * @see <a href="http://stackoverflow.com/questions/4674995/groovy-download-image-from-url">Groovy download image from url</a>
-	 */
-	private void downloadImage(File folder, String url)
-	{
-		log.info("downloadImage() folder=$folder, url=$url")
-		
-		/* ignore useless image. */
-		if (url.startsWith('http') == false)
-		{
-			return
-		}
-		
-		/* fetch image. */
-		
-		/* ignore small images. */
-		
-		log.info("Downloading $url ...")
-        // imageQueue << [folder: folder, url: url ]
-        try {
-            thread_pool.submit({
-                downloadImageJob folder, url
-            });
-        }catch (Exception e){
-            println "exception"
-            e.printStackTrace()
-        }
-        // finally {
-        //     // thread_pool.shutdown()
-        //     // println "submit finish!"
-        // }
-		// new File(folder, "${url.tokenize('/')[-1]}").withOutputStream { out ->
-		//   out << new URL(url).openStream()
-		// }
-	}
-	
-    /**
      * Main.
      */
     static main(args)
     {    
-        println args
         if (args)
         {
-            
             String url = args[0]
-            new ILoveCk101().run(url)            
-            try {
-                for (job in imageQueue) {
-                    thread_pool.submit({
-                        downloadImageJob(job["folder"], job["url"])
-                    });
-                }                
-                thread_pool.shutdown()
-            }catch (Exception e){
-                e.printStackTrace()
-            }finally {
-                thread_pool.shutdown()
-                println "submit finish! waiting download image"
-            }
-            
-            // try {
-            //   //thread_pool.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
-            //   // println thread_pool.awaitTermination(10 * 1000, TimeUnit.NANOSECONDS);
-            //   println thread_pool.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)
-            //   println "thread pool is close"
-            // } catch (InterruptedException e) {
-            //   println e              
-            // }
+            new ILoveCk101().run(url)
         }
         else
         {
