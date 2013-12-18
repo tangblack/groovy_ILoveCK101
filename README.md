@@ -1,7 +1,7 @@
 我愛卡提諾 groovy_ILoveCK101 
 =================
 
-https://github.com/tzangms/iloveck101 (我愛卡提諾/tzangms大 aka 海總理) 的 Groovy 版本。
+https://github.com/tzangms/iloveck101 (我愛卡提諾/tzangms大 aka 海總理) 的  Groovy 版本。
 
 
 如何安裝
