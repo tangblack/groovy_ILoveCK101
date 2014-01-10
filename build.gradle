@@ -1,0 +1,68 @@
+apply plugin: 'groovy'
+apply plugin: 'application'
+apply plugin: 'eclipse'
+apply plugin: 'gradle-one-jar'
+
+/* 
+ * The repositories on the root level are used to fetch the dependencies that your project depends on.
+ * So all the dependencies you need to compile your project
+ */
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	compile "org.codehaus.groovy:groovy-all:2.1.5"
+	compile "org.jsoup:jsoup:1.7.3"
+	compile "junit:junit:4.11"
+}
+
+mainClassName = "com.tangblack.iloveck101.ILoveCk101"
+
+sourceSets {
+	main {
+		groovy {
+			srcDir 'src'
+		}
+	}
+}
+
+/*
+ * The repositories in the buildScript block are used to fetch the dependencies of your buildScript dependencies
+ */
+buildscript {
+	repositories {
+		mavenCentral()
+	}
+	dependencies {
+		classpath 'com.github.rholder:gradle-one-jar:1.0.3'
+	}
+}
+
+/*
+ * commandline:
+ * ----------
+ * gradle oneJar
+ * java -jar iloveck101-standalone.jar http://ck101.com/thread-2876990-1-1.html
+ * ----------
+ */
+task oneJar(type: OneJar) {
+	mainClass = 'com.tangblack.iloveck101.ILoveCk101'
+}
+
+/*
+ * You can pass properties from the commandLine to your run task by using a bit groovy.
+ * 
+ * You can dynamically add args to the run task.
+ * Now you can run your app via gradle from the commandline:
+ * ----------
+ * gradle run -PappProp="http://ck101.com/thread-2876990-1-1.html"
+ * ----------
+ * 
+ * http://gradle.1045684.n5.nabble.com/Gradle-application-plugin-question-td5539555.html
+ */
+run{
+	if(project.hasProperty("appProp")){
+		args appProp
+	}
+}
